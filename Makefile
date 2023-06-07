@@ -10,7 +10,7 @@ endif
 
 .PHONY: build
 build:
-go build -o ${OUTPUT_PATH} ./cmd/baton-panther
+	go build -o ${OUTPUT_PATH} ./cmd/baton-panther
 
 .PHONY: update-deps
 update-deps:

@@ -1,4 +1,4 @@
-module github.com/ConductorOne/baton-panther
+module github.com/conductorone/baton-panther
 
 go 1.19
 
