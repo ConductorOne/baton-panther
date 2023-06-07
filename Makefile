@@ -1,13 +1,16 @@
 GOOS = $(shell go env GOOS)
 GOARCH = $(shell go env GOARCH)
 BUILD_DIR = dist/${GOOS}_${GOARCH}
+
+ifeq ($(GOOS),windows)
+OUTPUT_PATH = ${BUILD_DIR}/baton-panther.exe
+else
 OUTPUT_PATH = ${BUILD_DIR}/baton-panther
+endif
 
 .PHONY: build
 build:
-	rm -f ${OUTPUT_PATH}
-	mkdir -p ${BUILD_DIR}
-	go build -o ${OUTPUT_PATH} cmd/baton-panther/*.go
+go build -o ${OUTPUT_PATH} ./cmd/baton-panther
 
 .PHONY: update-deps
 update-deps:
