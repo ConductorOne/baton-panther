@@ -149,7 +149,7 @@ func (e *fastBase) resetBase(d *dict, singleBlock bool) {
 		if singleBlock {
 			e.lowMem = true
 		}
-		e.ensureHist(d.ContentSize() + maxCompressedBlockSize)
+		e.ensureHist(d.DictContentSize() + maxCompressedBlockSize)
 		e.lowMem = low
 	}
 

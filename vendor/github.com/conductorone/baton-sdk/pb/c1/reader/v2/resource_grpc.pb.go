@@ -8,6 +8,7 @@ package v2
 
 import (
 	context "context"
+	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -22,7 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ResourceTypesReaderServiceClient interface {
-	GetResourceType(ctx context.Context, in *ResourceTypesReaderServiceGetResourceTypeRequest, opts ...grpc.CallOption) (*ResourceTypesReaderServiceGetResourceTypeResponse, error)
+	GetResourceType(ctx context.Context, in *ResourceTypesReaderServiceGetResourceTypeRequest, opts ...grpc.CallOption) (*v2.ResourceType, error)
 }
 
 type resourceTypesReaderServiceClient struct {
@@ -33,8 +34,8 @@ func NewResourceTypesReaderServiceClient(cc grpc.ClientConnInterface) ResourceTy
 	return &resourceTypesReaderServiceClient{cc}
 }
 
-func (c *resourceTypesReaderServiceClient) GetResourceType(ctx context.Context, in *ResourceTypesReaderServiceGetResourceTypeRequest, opts ...grpc.CallOption) (*ResourceTypesReaderServiceGetResourceTypeResponse, error) {
-	out := new(ResourceTypesReaderServiceGetResourceTypeResponse)
+func (c *resourceTypesReaderServiceClient) GetResourceType(ctx context.Context, in *ResourceTypesReaderServiceGetResourceTypeRequest, opts ...grpc.CallOption) (*v2.ResourceType, error) {
+	out := new(v2.ResourceType)
 	err := c.cc.Invoke(ctx, "/c1.reader.v2.ResourceTypesReaderService/GetResourceType", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -46,14 +47,14 @@ func (c *resourceTypesReaderServiceClient) GetResourceType(ctx context.Context, 
 // All implementations should embed UnimplementedResourceTypesReaderServiceServer
 // for forward compatibility
 type ResourceTypesReaderServiceServer interface {
-	GetResourceType(context.Context, *ResourceTypesReaderServiceGetResourceTypeRequest) (*ResourceTypesReaderServiceGetResourceTypeResponse, error)
+	GetResourceType(context.Context, *ResourceTypesReaderServiceGetResourceTypeRequest) (*v2.ResourceType, error)
 }
 
 // UnimplementedResourceTypesReaderServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedResourceTypesReaderServiceServer struct {
 }
 
-func (UnimplementedResourceTypesReaderServiceServer) GetResourceType(context.Context, *ResourceTypesReaderServiceGetResourceTypeRequest) (*ResourceTypesReaderServiceGetResourceTypeResponse, error) {
+func (UnimplementedResourceTypesReaderServiceServer) GetResourceType(context.Context, *ResourceTypesReaderServiceGetResourceTypeRequest) (*v2.ResourceType, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetResourceType not implemented")
 }
 
@@ -106,7 +107,7 @@ var ResourceTypesReaderService_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ResourcesReaderServiceClient interface {
-	GetResource(ctx context.Context, in *ResourcesReaderServiceGetResourceRequest, opts ...grpc.CallOption) (*ResourcesReaderServiceGetResourceResponse, error)
+	GetResource(ctx context.Context, in *ResourceTypesReaderServiceGetResourceRequest, opts ...grpc.CallOption) (*v2.Resource, error)
 }
 
 type resourcesReaderServiceClient struct {
@@ -117,8 +118,8 @@ func NewResourcesReaderServiceClient(cc grpc.ClientConnInterface) ResourcesReade
 	return &resourcesReaderServiceClient{cc}
 }
 
-func (c *resourcesReaderServiceClient) GetResource(ctx context.Context, in *ResourcesReaderServiceGetResourceRequest, opts ...grpc.CallOption) (*ResourcesReaderServiceGetResourceResponse, error) {
-	out := new(ResourcesReaderServiceGetResourceResponse)
+func (c *resourcesReaderServiceClient) GetResource(ctx context.Context, in *ResourceTypesReaderServiceGetResourceRequest, opts ...grpc.CallOption) (*v2.Resource, error) {
+	out := new(v2.Resource)
 	err := c.cc.Invoke(ctx, "/c1.reader.v2.ResourcesReaderService/GetResource", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -130,14 +131,14 @@ func (c *resourcesReaderServiceClient) GetResource(ctx context.Context, in *Reso
 // All implementations should embed UnimplementedResourcesReaderServiceServer
 // for forward compatibility
 type ResourcesReaderServiceServer interface {
-	GetResource(context.Context, *ResourcesReaderServiceGetResourceRequest) (*ResourcesReaderServiceGetResourceResponse, error)
+	GetResource(context.Context, *ResourceTypesReaderServiceGetResourceRequest) (*v2.Resource, error)
 }
 
 // UnimplementedResourcesReaderServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedResourcesReaderServiceServer struct {
 }
 
-func (UnimplementedResourcesReaderServiceServer) GetResource(context.Context, *ResourcesReaderServiceGetResourceRequest) (*ResourcesReaderServiceGetResourceResponse, error) {
+func (UnimplementedResourcesReaderServiceServer) GetResource(context.Context, *ResourceTypesReaderServiceGetResourceRequest) (*v2.Resource, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetResource not implemented")
 }
 
@@ -153,7 +154,7 @@ func RegisterResourcesReaderServiceServer(s grpc.ServiceRegistrar, srv Resources
 }
 
 func _ResourcesReaderService_GetResource_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ResourcesReaderServiceGetResourceRequest)
+	in := new(ResourceTypesReaderServiceGetResourceRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -165,7 +166,7 @@ func _ResourcesReaderService_GetResource_Handler(srv interface{}, ctx context.Co
 		FullMethod: "/c1.reader.v2.ResourcesReaderService/GetResource",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ResourcesReaderServiceServer).GetResource(ctx, req.(*ResourcesReaderServiceGetResourceRequest))
+		return srv.(ResourcesReaderServiceServer).GetResource(ctx, req.(*ResourceTypesReaderServiceGetResourceRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

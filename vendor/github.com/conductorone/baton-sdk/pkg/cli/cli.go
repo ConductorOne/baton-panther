@@ -4,17 +4,18 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/conductorone/baton-sdk/internal/connector"
 	v1 "github.com/conductorone/baton-sdk/pb/c1/connector_wrapper/v1"
-	"github.com/conductorone/baton-sdk/pkg/connectorrunner"
 	"github.com/conductorone/baton-sdk/pkg/logging"
 	"github.com/conductorone/baton-sdk/pkg/types"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
+	"github.com/spf13/viper"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -24,6 +25,16 @@ const (
 	defaultLogFormat = logging.LogFormatJSON
 )
 
+type BaseConfig struct {
+	LogLevel           string `mapstructure:"log-level"`
+	LogFormat          string `mapstructure:"log-format"`
+	C1zPath            string `mapstructure:"file"`
+	GrantEntitlementID string `mapstructure:"grant-entitlement"`
+	GrantPrincipalID   string `mapstructure:"grant-principal"`
+	GrantPrincipalType string `mapstructure:"grant-principal-type"`
+	RevokeGrantID      string `mapstructure:"revoke-grant"`
+}
+
 // NewCmd returns a new cobra command that will populate the provided config object, validate it, and run the provided run function.
 func NewCmd[T any, PtrT *T](
 	ctx context.Context,
@@ -31,30 +42,18 @@ func NewCmd[T any, PtrT *T](
 	cfg PtrT,
 	validateF func(ctx context.Context, cfg PtrT) error,
 	getConnector func(ctx context.Context, cfg PtrT) (types.ConnectorServer, error),
-	opts ...connectorrunner.Option,
+	runF func(ctx context.Context, cfg PtrT) error,
 ) (*cobra.Command, error) {
-	err := setupService(name)
-	if err != nil {
-		return nil, err
-	}
-
 	cmd := &cobra.Command{
-		Use:           name,
-		Short:         name,
-		SilenceErrors: true,
-		SilenceUsage:  true,
+		Use:   name,
+		Short: name,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v, err := loadConfig(cmd, cfg)
 			if err != nil {
 				return err
 			}
 
-			runCtx, err := initLogger(
-				ctx,
-				name,
-				logging.WithLogFormat(v.GetString("log-format")),
-				logging.WithLogLevel(v.GetString("log-level")),
-			)
+			loggerCtx, err := logging.Init(ctx, v.GetString("log-format"), v.GetString("log-level"))
 			if err != nil {
 				return err
 			}
@@ -64,61 +63,7 @@ func NewCmd[T any, PtrT *T](
 				return err
 			}
 
-			l := ctxzap.Extract(runCtx)
-
-			if isService() {
-				runCtx, err = runService(runCtx, name)
-				if err != nil {
-					l.Error("error running service", zap.Error(err))
-					return err
-				}
-			}
-
-			c, err := getConnector(runCtx, cfg)
-			if err != nil {
-				return err
-			}
-
-			daemonMode := v.GetBool("daemon-mode") || v.GetString("client-id") != "" || isService()
-			if daemonMode {
-				opts = append(opts, connectorrunner.WithClientCredentials(v.GetString("client-id"), v.GetString("client-secret")))
-			} else {
-				switch {
-				case v.GetString("grant-entitlement") != "":
-					opts = append(opts,
-						connectorrunner.WithProvisioningEnabled(),
-						connectorrunner.WithOnDemandGrant(
-							v.GetString("file"),
-							v.GetString("grant-entitlement"),
-							v.GetString("grant-principal"),
-							v.GetString("grant-principal-type"),
-						))
-				case v.GetString("revoke-grant") != "":
-					opts = append(opts,
-						connectorrunner.WithProvisioningEnabled(),
-						connectorrunner.WithOnDemandRevoke(
-							v.GetString("file"),
-							v.GetString("revoke-grant"),
-						))
-				default:
-					opts = append(opts, connectorrunner.WithOnDemandSync(v.GetString("file")))
-				}
-			}
-
-			r, err := connectorrunner.NewConnectorRunner(runCtx, c, opts...)
-			if err != nil {
-				l.Error("error creating connector runner", zap.Error(err))
-				return err
-			}
-			defer r.Close(runCtx)
-
-			err = r.Run(runCtx)
-			if err != nil {
-				l.Error("error running connector", zap.Error(err))
-				return err
-			}
-
-			return nil
+			return runF(loggerCtx, cfg)
 		},
 	}
 
@@ -132,38 +77,21 @@ func NewCmd[T any, PtrT *T](
 				return err
 			}
 
-			runCtx, err := initLogger(
-				ctx,
-				name,
-				logging.WithLogFormat(v.GetString("log-format")),
-				logging.WithLogLevel(v.GetString("log-level")),
-			)
+			loggerCtx, err := logging.Init(ctx, v.GetString("log-format"), v.GetString("log-level"))
 			if err != nil {
 				return err
 			}
 
-			err = validateF(runCtx, cfg)
+			err = validateF(loggerCtx, cfg)
 			if err != nil {
 				return err
 			}
 
-			c, err := getConnector(runCtx, cfg)
+			c, err := getConnector(loggerCtx, cfg)
 			if err != nil {
 				return err
 			}
-
-			var copts []connector.Option
-
-			switch {
-			case v.GetString("grant-entitlement") != "":
-				copts = append(copts, connector.WithProvisioningEnabled())
-			case v.GetString("revoke-grant") != "":
-				copts = append(copts, connector.WithProvisioningEnabled())
-			case v.GetBool("provisioning"):
-				copts = append(copts, connector.WithProvisioningEnabled())
-			}
-
-			cw, err := connector.NewWrapper(runCtx, c, copts...)
+			cw, err := connector.NewWrapper(ctx, c)
 			if err != nil {
 				return err
 			}
@@ -202,44 +130,75 @@ func NewCmd[T any, PtrT *T](
 				return err
 			}
 
-			return cw.Run(runCtx, serverCfg)
+			return cw.Run(loggerCtx, serverCfg)
 		},
 	}
 
 	cmd.AddCommand(grpcServerCmd)
 
-	// Flags for logging configuration
 	cmd.PersistentFlags().String("log-level", defaultLogLevel, "The log level: debug, info, warn, error ($BATON_LOG_LEVEL)")
 	cmd.PersistentFlags().String("log-format", defaultLogFormat, "The output format for logs: json, console ($BATON_LOG_FORMAT)")
-
-	// Flags for direct syncing and provisioning
 	cmd.PersistentFlags().StringP("file", "f", "sync.c1z", "The path to the c1z file to sync with ($BATON_FILE)")
 	cmd.PersistentFlags().String("grant-entitlement", "", "The entitlement to grant to the supplied principal ($BATON_GRANT_ENTITLEMENT)")
 	cmd.PersistentFlags().String("grant-principal", "", "The resource to grant the entitlement to ($BATON_GRANT_PRINCIPAL)")
 	cmd.PersistentFlags().String("grant-principal-type", "", "The resource type of the principal to grant the entitlement to ($BATON_GRANT_PRINCIPAL_TYPE)")
 	cmd.MarkFlagsRequiredTogether("grant-entitlement", "grant-principal", "grant-principal-type")
+
 	cmd.PersistentFlags().String("revoke-grant", "", "The grant to revoke ($BATON_REVOKE_GRANT)")
 	cmd.MarkFlagsMutuallyExclusive("grant-entitlement", "revoke-grant")
-
-	// Flags for daemon mode
-	cmd.PersistentFlags().BoolP("daemon-mode", "d", false, "Run in daemon mode ($BATON_DAEMON_MODE)")
-	cmd.PersistentFlags().String("client-id", "", "The client ID used to authenticate with ConductorOne ($BATON_CLIENT_ID)")
-	cmd.PersistentFlags().String("client-secret", "", "The client secret used to authenticate with ConductorOne ($BATON_CLIENT_SECRET)")
-	cmd.PersistentFlags().BoolP("provisioning", "p", false, "This must be set in order for provisioning actions to be enabled. ($BATON_PROVISIONING)")
-	cmd.MarkFlagsRequiredTogether("client-id", "client-secret")
-	err = cmd.PersistentFlags().MarkHidden("daemon-mode")
-	if err != nil {
-		return nil, err
-	}
-	err = cmd.PersistentFlags().MarkHidden("provisioning")
-	if err != nil {
-		return nil, err
-	}
-	cmd.MarkFlagsMutuallyExclusive("file", "daemon-mode")
-
-	// Add a hook for additional commands to be added to the root command.
-	// We use this for OS specific commands.
-	cmd.AddCommand(additionalCommands(name, cfg)...)
-
 	return cmd, nil
+}
+
+func getConfigPath(customPath string) (string, string, error) {
+	if customPath != "" {
+		cfgDir, cfgFile := filepath.Split(filepath.Clean(customPath))
+		if cfgDir == "" {
+			cfgDir = "."
+		}
+
+		ext := filepath.Ext(cfgFile)
+		if ext != ".yaml" && ext != ".yml" {
+			return "", "", errors.New("expected config file to have .yaml or .yml extension")
+		}
+
+		return strings.TrimSuffix(cfgDir, string(filepath.Separator)), strings.TrimSuffix(cfgFile, ext), nil
+	}
+
+	return ".", ".baton", nil
+}
+
+// loadConfig sets viper up to parse the config into the provided configuration object.
+func loadConfig[T any, PtrT *T](cmd *cobra.Command, cfg PtrT) (*viper.Viper, error) {
+	v := viper.New()
+	v.SetConfigType("yaml")
+
+	cfgPath, cfgName, err := getConfigPath(os.Getenv("BATON_CONFIG_PATH"))
+	if err != nil {
+		return nil, err
+	}
+
+	v.SetConfigName(cfgName)
+	v.AddConfigPath(cfgPath)
+
+	if err := v.ReadInConfig(); err != nil {
+		if ok := !errors.Is(err, viper.ConfigFileNotFoundError{}); !ok {
+			return nil, err
+		}
+	}
+
+	v.SetEnvPrefix(envPrefix)
+	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	v.AutomaticEnv()
+	if err := v.BindPFlags(cmd.PersistentFlags()); err != nil {
+		return nil, err
+	}
+	if err := v.BindPFlags(cmd.Flags()); err != nil {
+		return nil, err
+	}
+
+	if err := v.Unmarshal(cfg); err != nil {
+		return nil, err
+	}
+
+	return v, nil
 }

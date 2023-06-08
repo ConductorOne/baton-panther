@@ -18,7 +18,6 @@ import (
 	reader_v2 "github.com/conductorone/baton-sdk/pb/c1/reader/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/connectorstore"
-	"github.com/conductorone/baton-sdk/pkg/dotc1z/manager"
 	"github.com/conductorone/baton-sdk/pkg/types"
 )
 
@@ -28,15 +27,13 @@ var (
 
 type Syncer interface {
 	Sync(ctx context.Context) error
-	Close(ctx context.Context) error
+	Close() error
 }
 
 // syncer orchestrates a connector sync and stores the results using the provided datasource.Writer.
 type syncer struct {
-	c1zManager        manager.Manager
-	c1zPath           string
 	store             connectorstore.Writer
-	connector         types.ConnectorClient
+	connector         types.ClientWrapper
 	state             State
 	runDuration       time.Duration
 	transitionHandler func(s Action)
@@ -87,12 +84,12 @@ func (s *syncer) Sync(ctx context.Context) error {
 		defer runCanc()
 	}
 
-	err := s.loadStore(ctx)
+	c, err := s.connector.C(ctx)
 	if err != nil {
 		return err
 	}
 
-	_, err = s.connector.Validate(ctx, &v2.ConnectorServiceValidateRequest{})
+	_, err = c.Validate(ctx, &v2.ConnectorServiceValidateRequest{})
 	if err != nil {
 		return err
 	}
@@ -222,12 +219,12 @@ func (s *syncer) SyncResourceTypes(ctx context.Context) error {
 		s.handleInitialActionForStep(ctx, *s.state.Current())
 	}
 
-	err := s.loadStore(ctx)
+	c, err := s.connector.C(ctx)
 	if err != nil {
 		return err
 	}
 
-	resp, err := s.connector.ListResourceTypes(ctx, &v2.ResourceTypesServiceListResourceTypesRequest{PageToken: pageToken})
+	resp, err := c.ListResourceTypes(ctx, &v2.ResourceTypesServiceListResourceTypesRequest{PageToken: pageToken})
 	if err != nil {
 		return err
 	}
@@ -323,7 +320,12 @@ func (s *syncer) syncResources(ctx context.Context) error {
 		}
 	}
 
-	resp, err := s.connector.ListResources(ctx, req)
+	c, err := s.connector.C(ctx)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.ListResources(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -341,7 +343,7 @@ func (s *syncer) syncResources(ctx context.Context) error {
 
 	for _, r := range resp.List {
 		// Check if we've already synced this resource, skip it if we have
-		_, err = s.store.GetResource(ctx, &reader_v2.ResourcesReaderServiceGetResourceRequest{
+		_, err = s.store.GetResource(ctx, &reader_v2.ResourceTypesReaderServiceGetResourceRequest{
 			ResourceId: &v2.ResourceId{ResourceType: r.Id.ResourceType, Resource: r.Id.Resource},
 		})
 		if err == nil {
@@ -372,14 +374,14 @@ func (s *syncer) syncResources(ctx context.Context) error {
 }
 
 func (s *syncer) validateResourceTraits(ctx context.Context, r *v2.Resource) error {
-	resourceTypeResponse, err := s.store.GetResourceType(ctx, &reader_v2.ResourceTypesReaderServiceGetResourceTypeRequest{
+	rt, err := s.store.GetResourceType(ctx, &reader_v2.ResourceTypesReaderServiceGetResourceTypeRequest{
 		ResourceTypeId: r.Id.ResourceType,
 	})
 	if err != nil {
 		return err
 	}
 
-	for _, t := range resourceTypeResponse.ResourceType.Traits {
+	for _, t := range rt.Traits {
 		var trait proto.Message
 		switch t {
 		case v2.ResourceType_TRAIT_APP:
@@ -425,7 +427,7 @@ func (s *syncer) shouldSkipEntitlementsAndGrants(ctx context.Context, r *v2.Reso
 		return false, err
 	}
 
-	rtAnnos := annotations.Annotations(rt.ResourceType.Annotations)
+	rtAnnos := annotations.Annotations(rt.Annotations)
 
 	skipEntitlements := rtAnnos.Contains(&v2.SkipEntitlementsAndGrants{})
 	s.skipEGForResourceType[r.Id.ResourceType] = skipEntitlements
@@ -484,7 +486,7 @@ func (s *syncer) SyncEntitlements(ctx context.Context) error {
 
 // syncEntitlementsForResource fetches the entitlements for a specific resource from the connector.
 func (s *syncer) syncEntitlementsForResource(ctx context.Context, resourceID *v2.ResourceId) error {
-	resourceResponse, err := s.store.GetResource(ctx, &reader_v2.ResourcesReaderServiceGetResourceRequest{
+	resource, err := s.store.GetResource(ctx, &reader_v2.ResourceTypesReaderServiceGetResourceRequest{
 		ResourceId: resourceID,
 	})
 	if err != nil {
@@ -493,10 +495,12 @@ func (s *syncer) syncEntitlementsForResource(ctx context.Context, resourceID *v2
 
 	pageToken := s.state.PageToken(ctx)
 
-	resp, err := s.connector.ListEntitlements(ctx, &v2.EntitlementsServiceListEntitlementsRequest{
-		Resource:  resourceResponse.Resource,
-		PageToken: pageToken,
-	})
+	c, err := s.connector.C(ctx)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.ListEntitlements(ctx, &v2.EntitlementsServiceListEntitlementsRequest{Resource: resource, PageToken: pageToken})
 	if err != nil {
 		return err
 	}
@@ -526,7 +530,7 @@ func (s *syncer) syncEntitlementsForResource(ctx context.Context, resourceID *v2
 // Once we have the entire asset, we put it in the database.
 func (s *syncer) syncAssetsForResource(ctx context.Context, resourceID *v2.ResourceId) error {
 	l := ctxzap.Extract(ctx)
-	resourceResponse, err := s.store.GetResource(ctx, &reader_v2.ResourcesReaderServiceGetResourceRequest{
+	resource, err := s.store.GetResource(ctx, &reader_v2.ResourceTypesReaderServiceGetResourceRequest{
 		ResourceId: resourceID,
 	})
 	if err != nil {
@@ -535,7 +539,12 @@ func (s *syncer) syncAssetsForResource(ctx context.Context, resourceID *v2.Resou
 
 	var assetRefs []*v2.AssetRef
 
-	rAnnos := annotations.Annotations(resourceResponse.Resource.Annotations)
+	c, err := s.connector.C(ctx)
+	if err != nil {
+		return err
+	}
+
+	rAnnos := annotations.Annotations(resource.Annotations)
 
 	userTrait := &v2.UserTrait{}
 	ok, err := rAnnos.Pick(userTrait)
@@ -570,7 +579,7 @@ func (s *syncer) syncAssetsForResource(ctx context.Context, resourceID *v2.Resou
 		}
 
 		l.Debug("fetching asset", zap.String("asset_ref_id", assetRef.Id))
-		resp, err := s.connector.GetAsset(ctx, &v2.AssetServiceGetAssetRequest{Asset: assetRef})
+		resp, err := c.GetAsset(ctx, &v2.AssetServiceGetAssetRequest{Asset: assetRef})
 		if err != nil {
 			return err
 		}
@@ -740,7 +749,7 @@ func (s *syncer) fetchResourceForPreviousSync(ctx context.Context, resourceID *v
 
 	var lastSyncResourceReqAnnos annotations.Annotations
 	lastSyncResourceReqAnnos.Update(&c1zpb.SyncDetails{Id: previousSyncID})
-	prevResource, err := s.store.GetResource(ctx, &reader_v2.ResourcesReaderServiceGetResourceRequest{
+	prevResource, err := s.store.GetResource(ctx, &reader_v2.ResourceTypesReaderServiceGetResourceRequest{
 		ResourceId:  resourceID,
 		Annotations: lastSyncResourceReqAnnos,
 	})
@@ -760,7 +769,7 @@ func (s *syncer) fetchResourceForPreviousSync(ctx context.Context, resourceID *v
 	}
 
 	pETag := &v2.ETag{}
-	prevAnnos := annotations.Annotations(prevResource.Resource.GetAnnotations())
+	prevAnnos := annotations.Annotations(prevResource.GetAnnotations())
 	ok, err := prevAnnos.Pick(pETag)
 	if err != nil {
 		return "", nil, err
@@ -774,14 +783,12 @@ func (s *syncer) fetchResourceForPreviousSync(ctx context.Context, resourceID *v
 
 // syncGrantsForResource fetches the grants for a specific resource from the connector.
 func (s *syncer) syncGrantsForResource(ctx context.Context, resourceID *v2.ResourceId) error {
-	resourceResponse, err := s.store.GetResource(ctx, &reader_v2.ResourcesReaderServiceGetResourceRequest{
+	resource, err := s.store.GetResource(ctx, &reader_v2.ResourceTypesReaderServiceGetResourceRequest{
 		ResourceId: resourceID,
 	})
 	if err != nil {
 		return err
 	}
-
-	resource := resourceResponse.Resource
 
 	var prevSyncID string
 	var prevEtag *v2.ETag
@@ -798,7 +805,12 @@ func (s *syncer) syncGrantsForResource(ctx context.Context, resourceID *v2.Resou
 		resource.Annotations = resourceAnnos
 	}
 
-	resp, err := s.connector.ListGrants(ctx, &v2.GrantsServiceListGrantsRequest{Resource: resourceResponse.Resource, PageToken: pageToken})
+	c, err := s.connector.C(ctx)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.ListGrants(ctx, &v2.GrantsServiceListGrantsRequest{Resource: resource, PageToken: pageToken})
 	if err != nil {
 		return err
 	}
@@ -892,45 +904,17 @@ func (s *syncer) syncGrantsForResource(ctx context.Context, resourceID *v2.Resou
 	return nil
 }
 
-func (s *syncer) loadStore(ctx context.Context) error {
-	if s.store != nil {
-		return nil
-	}
-
-	if s.c1zManager == nil {
-		m, err := manager.New(ctx, s.c1zPath)
-		if err != nil {
-			return err
-		}
-		s.c1zManager = m
-	}
-
-	store, err := s.c1zManager.LoadC1Z(ctx)
-	if err != nil {
-		return err
-	}
-
-	s.store = store
-
-	return nil
-}
-
 // Close closes the datastorage to ensure it is updated on disk.
-func (s *syncer) Close(ctx context.Context) error {
+func (s *syncer) Close() error {
 	err := s.store.Close()
 	if err != nil {
 		return fmt.Errorf("error closing store: %w", err)
 	}
 
-	if s.c1zManager != nil {
-		err = s.c1zManager.SaveC1Z(ctx)
+	if s.connector != nil {
+		err = s.connector.Close()
 		if err != nil {
-			return err
-		}
-
-		err = s.c1zManager.Close(ctx)
-		if err != nil {
-			return err
+			return fmt.Errorf("error closing connector: %w", err)
 		}
 	}
 
@@ -967,21 +951,10 @@ func WithProgressHandler(f func(s *Progress)) SyncOpt {
 	}
 }
 
-func WithConnectorStore(store connectorstore.Writer) SyncOpt {
-	return func(s *syncer) {
-		s.store = store
-	}
-}
-
-func WithC1ZPath(path string) SyncOpt {
-	return func(s *syncer) {
-		s.c1zPath = path
-	}
-}
-
 // NewSyncer returns a new syncer object.
-func NewSyncer(ctx context.Context, c types.ConnectorClient, opts ...SyncOpt) (Syncer, error) {
+func NewSyncer(store connectorstore.Writer, c types.ClientWrapper, opts ...SyncOpt) Syncer {
 	s := &syncer{
+		store:                 store,
 		connector:             c,
 		skipEGForResourceType: make(map[string]bool),
 	}
@@ -990,9 +963,5 @@ func NewSyncer(ctx context.Context, c types.ConnectorClient, opts ...SyncOpt) (S
 		o(s)
 	}
 
-	if s.store == nil && s.c1zPath == "" {
-		return nil, errors.New("a connector store writer or a db path must be provided")
-	}
-
-	return s, nil
+	return s
 }

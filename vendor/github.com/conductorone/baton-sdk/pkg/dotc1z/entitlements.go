@@ -73,7 +73,7 @@ func (c *C1File) ListEntitlements(ctx context.Context, request *v2.EntitlementsS
 	}, nil
 }
 
-func (c *C1File) GetEntitlement(ctx context.Context, request *reader_v2.EntitlementsReaderServiceGetEntitlementRequest) (*reader_v2.EntitlementsReaderServiceGetEntitlementResponse, error) {
+func (c *C1File) GetEntitlement(ctx context.Context, request *reader_v2.EntitlementsReaderServiceGetEntitlementRequest) (*v2.Entitlement, error) {
 	ctxzap.Extract(ctx).Debug("fetching entitlement", zap.String("entitlement_id", request.EntitlementId))
 
 	ret := &v2.Entitlement{}
@@ -83,9 +83,7 @@ func (c *C1File) GetEntitlement(ctx context.Context, request *reader_v2.Entitlem
 		return nil, err
 	}
 
-	return &reader_v2.EntitlementsReaderServiceGetEntitlementResponse{
-		Entitlement: ret,
-	}, nil
+	return ret, nil
 }
 
 func (c *C1File) PutEntitlement(ctx context.Context, entitlement *v2.Entitlement) error {

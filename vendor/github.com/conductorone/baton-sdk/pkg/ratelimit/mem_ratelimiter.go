@@ -10,6 +10,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	rl "go.uber.org/ratelimit"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type MemRateLimiter struct {
@@ -25,7 +26,7 @@ func (m *MemRateLimiter) Do(ctx context.Context, req *ratelimitV1.DoRequest) (*r
 		return &v1.DoResponse{
 			RequestToken: req.RequestToken,
 			Description: &v1.RateLimitDescription{
-				Status: v1.RateLimitDescription_STATUS_EMPTY,
+				Status: v1.RateLimitDescription_EMPTY,
 			},
 		}, nil
 	}
@@ -35,31 +36,31 @@ func (m *MemRateLimiter) Do(ctx context.Context, req *ratelimitV1.DoRequest) (*r
 	return &v1.DoResponse{
 		RequestToken: req.RequestToken,
 		Description: &v1.RateLimitDescription{
-			Status: v1.RateLimitDescription_STATUS_EMPTY,
+			Status: v1.RateLimitDescription_EMPTY,
 		},
 	}, nil
 }
 
 // Report updates the rate limiter with relevant information.
-func (m *MemRateLimiter) Report(ctx context.Context, req *ratelimitV1.ReportRequest) (*ratelimitV1.ReportResponse, error) {
+func (m *MemRateLimiter) Report(ctx context.Context, req *ratelimitV1.ReportRequest) (*emptypb.Empty, error) {
 	m.Lock()
 	defer m.Unlock()
 
 	if m.usePercent == 0 {
-		return &ratelimitV1.ReportResponse{}, nil
+		return &emptypb.Empty{}, nil
 	}
 
 	if req.GetDescription() == nil {
-		return &ratelimitV1.ReportResponse{}, nil
+		return &emptypb.Empty{}, nil
 	}
 	desc := req.GetDescription()
 
 	if desc.ResetAt == nil {
-		return &ratelimitV1.ReportResponse{}, nil
+		return &emptypb.Empty{}, nil
 	}
 
 	if desc.Remaining == 0 {
-		return &ratelimitV1.ReportResponse{}, nil
+		return &emptypb.Empty{}, nil
 	}
 
 	resetAt := desc.ResetAt.AsTime().UTC()
@@ -82,7 +83,7 @@ func (m *MemRateLimiter) Report(ctx context.Context, req *ratelimitV1.ReportRequ
 	)
 	m.limiter = rl.New(int(limiterSize))
 
-	return &ratelimitV1.ReportResponse{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // NewSlidingMemoryRateLimiter returns an in-memory limiter that attempts to use rate limiting reports to define a

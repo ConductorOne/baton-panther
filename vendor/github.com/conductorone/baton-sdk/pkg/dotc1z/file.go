@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/klauspost/compress/zstd"
-	"go.uber.org/zap"
 )
 
 func loadC1z(filePath string) (string, error) {
@@ -56,18 +55,7 @@ func saveC1z(dbFilePath string, outputFilePath string) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		err = dbFile.Close()
-		if err != nil {
-			zap.L().Error("failed to close db file", zap.Error(err))
-		}
-
-		// Cleanup the database filepath. This should always be a file within a temp directory, so we remove the entire dir.
-		err = os.RemoveAll(filepath.Dir(dbFilePath))
-		if err != nil {
-			zap.L().Error("failed to remove db dir", zap.Error(err))
-		}
-	}()
+	defer dbFile.Close()
 
 	outFile, err := os.OpenFile(outputFilePath, os.O_RDWR|os.O_CREATE|syscall.O_TRUNC, 0644)
 	if err != nil {

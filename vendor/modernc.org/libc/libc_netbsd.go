@@ -205,7 +205,11 @@ var localtime time.Tm
 
 // struct tm *localtime(const time_t *timep);
 func Xlocaltime(_ *TLS, timep uintptr) uintptr {
-	loc := getLocalLocation()
+	loc := gotime.Local
+	if r := getenv(Environ(), "TZ"); r != 0 {
+		zone, off := parseZone(GoString(r))
+		loc = gotime.FixedZone(zone, -off)
+	}
 	ut := *(*time.Time_t)(unsafe.Pointer(timep))
 	t := gotime.Unix(int64(ut), 0).In(loc)
 	localtime.Ftm_sec = int32(t.Second())
@@ -222,7 +226,11 @@ func Xlocaltime(_ *TLS, timep uintptr) uintptr {
 
 // struct tm *localtime_r(const time_t *timep, struct tm *result);
 func Xlocaltime_r(_ *TLS, timep, result uintptr) uintptr {
-	loc := getLocalLocation()
+	loc := gotime.Local
+	if r := getenv(Environ(), "TZ"); r != 0 {
+		zone, off := parseZone(GoString(r))
+		loc = gotime.FixedZone(zone, -off)
+	}
 	ut := *(*time.Time_t)(unsafe.Pointer(timep))
 	t := gotime.Unix(int64(ut), 0).In(loc)
 	(*time.Tm)(unsafe.Pointer(result)).Ftm_sec = int32(t.Second())

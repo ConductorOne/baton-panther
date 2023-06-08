@@ -45,7 +45,6 @@ func (pn *Panther) ResourceSyncers(ctx context.Context) []connectorbuilder.Resou
 func (pn *Panther) Metadata(ctx context.Context) (*v2.ConnectorMetadata, error) {
 	return &v2.ConnectorMetadata{
 		DisplayName: "Panther",
-		Description: "Connector that syncs users and roles from Panther to Baton.",
 	}, nil
 }
 

@@ -68,7 +68,7 @@ func (c *C1File) ListResourceTypes(ctx context.Context, request *v2.ResourceType
 	}, nil
 }
 
-func (c *C1File) GetResourceType(ctx context.Context, request *reader_v2.ResourceTypesReaderServiceGetResourceTypeRequest) (*reader_v2.ResourceTypesReaderServiceGetResourceTypeResponse, error) {
+func (c *C1File) GetResourceType(ctx context.Context, request *reader_v2.ResourceTypesReaderServiceGetResourceTypeRequest) (*v2.ResourceType, error) {
 	ctxzap.Extract(ctx).Debug("fetching resource type", zap.String("resource_type_id", request.ResourceTypeId))
 
 	ret := &v2.ResourceType{}
@@ -78,9 +78,7 @@ func (c *C1File) GetResourceType(ctx context.Context, request *reader_v2.Resourc
 		return nil, err
 	}
 
-	return &reader_v2.ResourceTypesReaderServiceGetResourceTypeResponse{
-		ResourceType: ret,
-	}, nil
+	return ret, nil
 }
 
 func (c *C1File) PutResourceType(ctx context.Context, resourceType *v2.ResourceType) error {

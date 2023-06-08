@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/conductorone/baton-sdk/pkg/sdk"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 	"golang.org/x/net/http2"
@@ -104,8 +103,9 @@ func (t *Transport) make(ctx context.Context) (http.RoundTripper, error) {
 		return nil, err
 	}
 	var rv http.RoundTripper = baseTransport
-	t.userAgent = t.userAgent + " baton-sdk/" + sdk.Version
-	rv = &userAgentTripper{next: rv, userAgent: t.userAgent}
+	if t.userAgent != "" {
+		rv = &userAgentTripper{next: rv, userAgent: t.userAgent}
+	}
 	return rv, nil
 }
 
