@@ -94,7 +94,7 @@ func (r *roleResourceType) Grants(ctx context.Context, resource *v2.Resource, _ 
 		// SAML Default roles are not linked to Panther's roles API via ID
 		if strings.Contains(user.Role.ID, "(SAML Default)") {
 			// Change Analyst (SAML Default) to Analyst
-			roleName = strings.Trim(strings.Replace(user.Role.ID, "(SAML Default)", "", -1), " ")
+			roleName = strings.TrimSpace(strings.Replace(user.Role.ID, "(SAML Default)", "", -1))
 		}
 		// If the ID exists process as normal, otherwise use the role name
 		if resource.Id.Resource == user.Role.ID || resource.DisplayName == roleName {
