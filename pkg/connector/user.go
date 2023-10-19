@@ -32,6 +32,7 @@ func userResource(ctx context.Context, user *panther.User) (*v2.Resource, error)
 	userTraitOptions := []resource.UserTraitOption{
 		resource.WithUserProfile(profile),
 		resource.WithEmail(user.Email, true),
+		resource.WithStatus(v2.UserTrait_Status_STATUS_ENABLED),
 	}
 
 	ret, err := resource.NewUserResource(
