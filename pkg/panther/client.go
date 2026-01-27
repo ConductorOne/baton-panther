@@ -66,11 +66,11 @@ func (c *Client) GetUsers(ctx context.Context) ([]User, error) {
 	}
 
 	if res.Message != "" {
-		return nil, fmt.Errorf(res.Message)
+		return nil, fmt.Errorf("%s", res.Message)
 	}
 
 	if res.Errors != nil {
-		return nil, fmt.Errorf(res.Errors[0].Message)
+		return nil, fmt.Errorf("%s", res.Errors[0].Message)
 	}
 
 	return res.Data.Users, nil
@@ -91,11 +91,11 @@ func (c *Client) GetRoles(ctx context.Context) ([]Role, error) {
 	}
 
 	if res.Message != "" {
-		return nil, fmt.Errorf(res.Message)
+		return nil, fmt.Errorf("%s", res.Message)
 	}
 
 	if res.Errors != nil {
-		return nil, fmt.Errorf(res.Errors[0].Message)
+		return nil, fmt.Errorf("%s", res.Errors[0].Message)
 	}
 
 	return res.Data.Roles, nil
