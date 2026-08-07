@@ -30,9 +30,7 @@ func userResource(ctx context.Context, user *panther.User) (*v2.Resource, error)
 	}
 
 	userTraitOptions := []resource.UserTraitOption{
-		resource.WithUserProfile(profile),
 		resource.WithEmail(user.Email, true),
-		resource.WithStatus(v2.UserTrait_Status_STATUS_ENABLED),
 	}
 
 	ret, err := resource.NewUserResource(
@@ -40,6 +38,8 @@ func userResource(ctx context.Context, user *panther.User) (*v2.Resource, error)
 		resourceTypeUser,
 		user.ID,
 		userTraitOptions,
+		resource.WithResourceProfile(profile),
+		resource.WithResourceStatus(v2.Status_RESOURCE_STATUS_ENABLED, ""),
 	)
 	if err != nil {
 		return nil, err
