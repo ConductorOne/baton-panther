@@ -19,7 +19,6 @@ var (
 		Traits: []v2.ResourceType_Trait{
 			v2.ResourceType_TRAIT_USER,
 		},
-		Annotations: annotationsForUserResourceType(),
 	}
 	resourceTypeRole = &v2.ResourceType{
 		Id:          "role",
@@ -27,16 +26,18 @@ var (
 		Traits: []v2.ResourceType_Trait{
 			v2.ResourceType_TRAIT_ROLE,
 		},
+		Annotations: annotationsForRoleResourceType(),
 	}
 )
 
 type Panther struct {
-	client *panther.Client
+	client    *panther.Client
+	syncRoles bool
 }
 
-func (pn *Panther) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
-	return []connectorbuilder.ResourceSyncer{
-		userBuilder(pn.client),
+func (pn *Panther) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncerV2 {
+	return []connectorbuilder.ResourceSyncerV2{
+		userBuilder(pn.client, pn.syncRoles),
 		roleBuilder(pn.client),
 	}
 }
@@ -59,14 +60,15 @@ func (pn *Panther) Validate(ctx context.Context) (annotations.Annotations, error
 	return nil, nil
 }
 
-// New returns the Panther connector.
-func New(ctx context.Context, token, url string) (*Panther, error) {
+// New returns the Panther connector. User grants are only emitted when syncRoles is true.
+func New(ctx context.Context, token, url string, syncRoles bool) (*Panther, error) {
 	httpClient, err := uhttp.NewClient(ctx, uhttp.WithLogger(true, ctxzap.Extract(ctx)))
 	if err != nil {
 		return nil, err
 	}
 
 	return &Panther{
-		client: panther.NewClient(httpClient, token, url),
+		client:    panther.NewClient(httpClient, token, url),
+		syncRoles: syncRoles,
 	}, nil
 }

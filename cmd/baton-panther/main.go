@@ -2,15 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"os"
 
-	"github.com/conductorone/baton-panther/pkg/connector"
 	cfg "github.com/conductorone/baton-panther/pkg/config"
+	"github.com/conductorone/baton-panther/pkg/connector"
+	"github.com/conductorone/baton-sdk/pkg/cli"
 	"github.com/conductorone/baton-sdk/pkg/config"
 	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
 	"github.com/conductorone/baton-sdk/pkg/connectorrunner"
-	"github.com/conductorone/baton-sdk/pkg/types"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 )
@@ -20,41 +18,24 @@ var version = "dev"
 func main() {
 	ctx := context.Background()
 
-	_, cmd, err := config.DefineConfiguration(
+	config.RunConnector(
 		ctx,
 		"baton-panther",
-		getConnector,
+		version,
 		cfg.Config,
-		connectorrunner.WithDefaultCapabilitiesConnectorBuilder(&connector.Panther{}),
+		newConnector,
+		connectorrunner.WithDefaultCapabilitiesConnectorBuilderV2(&connector.Panther{}),
 	)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
-	}
-
-	cmd.Version = version
-
-	err = cmd.Execute()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
-	}
 }
 
-func getConnector(ctx context.Context, c *cfg.Panther) (types.ConnectorServer, error) {
+func newConnector(ctx context.Context, c *cfg.Panther, opts *cli.ConnectorOpts) (connectorbuilder.ConnectorBuilderV2, []connectorbuilder.Opt, error) {
 	l := ctxzap.Extract(ctx)
 
-	cb, err := connector.New(ctx, c.Token, c.Url)
+	cb, err := connector.New(ctx, c.Token, c.Url, opts.WillSyncResourceType("role"))
 	if err != nil {
 		l.Error("error creating connector", zap.Error(err))
-		return nil, err
+		return nil, nil, err
 	}
 
-	conn, err := connectorbuilder.NewConnector(ctx, cb)
-	if err != nil {
-		l.Error("error creating connector", zap.Error(err))
-		return nil, err
-	}
-
-	return conn, nil
+	return cb, nil, nil
 }
