@@ -8,6 +8,8 @@ import (
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	grant "github.com/conductorone/baton-sdk/pkg/types/grant"
 	resource "github.com/conductorone/baton-sdk/pkg/types/resource"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
+	"go.uber.org/zap"
 )
 
 type userResourceType struct {
@@ -80,6 +82,7 @@ func (u *userResourceType) Grants(ctx context.Context, res *v2.Resource, _ resou
 
 	roleID, ok := resource.GetProfileStringValue(res.GetProfile(), "role_id")
 	if !ok || roleID == "" {
+		ctxzap.Extract(ctx).Debug("baton-panther: user has no role_id, skipping role grant", zap.String("user_id", res.Id.GetResource()))
 		return nil, nil, nil
 	}
 
