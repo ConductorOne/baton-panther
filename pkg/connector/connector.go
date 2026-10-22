@@ -31,13 +31,15 @@ var (
 )
 
 type Panther struct {
-	client    *panther.Client
-	syncRoles bool
+	client *panther.Client
+	// skipRoleGrants is true when the role resource type is not synced.
+	// The zero value matches the default of syncing everything.
+	skipRoleGrants bool
 }
 
 func (pn *Panther) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncerV2 {
 	return []connectorbuilder.ResourceSyncerV2{
-		userBuilder(pn.client, pn.syncRoles),
+		userBuilder(pn.client, !pn.skipRoleGrants),
 		roleBuilder(pn.client),
 	}
 }
@@ -68,7 +70,7 @@ func New(ctx context.Context, token, url string, syncRoles bool) (*Panther, erro
 	}
 
 	return &Panther{
-		client:    panther.NewClient(httpClient, token, url),
-		syncRoles: syncRoles,
+		client:         panther.NewClient(httpClient, token, url),
+		skipRoleGrants: !syncRoles,
 	}, nil
 }
