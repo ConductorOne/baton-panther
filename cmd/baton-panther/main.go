@@ -31,7 +31,7 @@ func main() {
 func newConnector(ctx context.Context, c *cfg.Panther, opts *cli.ConnectorOpts) (connectorbuilder.ConnectorBuilderV2, []connectorbuilder.Opt, error) {
 	l := ctxzap.Extract(ctx)
 
-	cb, err := connector.New(ctx, c.Token, c.Url, opts.WillSyncResourceType("role"))
+	cb, err := connector.New(ctx, c.Token, c.Url, opts.WillSyncResourceType(connector.RoleResourceTypeID))
 	if err != nil {
 		l.Error("error creating connector", zap.Error(err))
 		return nil, nil, err

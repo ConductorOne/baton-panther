@@ -12,6 +12,9 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 )
 
+// RoleResourceTypeID is the ID of the role resource type.
+const RoleResourceTypeID = "role"
+
 var (
 	resourceTypeUser = &v2.ResourceType{
 		Id:          "user",
@@ -21,7 +24,7 @@ var (
 		},
 	}
 	resourceTypeRole = &v2.ResourceType{
-		Id:          "role",
+		Id:          RoleResourceTypeID,
 		DisplayName: "Role",
 		Traits: []v2.ResourceType_Trait{
 			v2.ResourceType_TRAIT_ROLE,
