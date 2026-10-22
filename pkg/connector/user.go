@@ -52,7 +52,7 @@ func userResource(ctx context.Context, user *panther.User) (*v2.Resource, error)
 func (u *userResourceType) List(ctx context.Context, _ *v2.ResourceId, _ resource.SyncOpAttrs) ([]*v2.Resource, *resource.SyncOpResults, error) {
 	users, err := u.client.GetUsers(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("panther-connector: failed to list users: %w", err)
+		return nil, nil, fmt.Errorf("baton-panther: failed to list users: %w", err)
 	}
 
 	var rv []*v2.Resource

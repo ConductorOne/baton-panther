@@ -56,7 +56,7 @@ func (pn *Panther) Metadata(ctx context.Context) (*v2.ConnectorMetadata, error) 
 func (pn *Panther) Validate(ctx context.Context) (annotations.Annotations, error) {
 	_, err := pn.client.GetUsers(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("panther-connector: failed to authenticate. Error: %w", err)
+		return nil, fmt.Errorf("baton-panther: failed to authenticate. Error: %w", err)
 	}
 
 	return nil, nil

@@ -47,7 +47,7 @@ func roleResource(ctx context.Context, role panther.Role) (*v2.Resource, error) 
 func (r *roleResourceType) List(ctx context.Context, _ *v2.ResourceId, _ resource.SyncOpAttrs) ([]*v2.Resource, *resource.SyncOpResults, error) {
 	roles, err := r.client.GetRoles(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("panther-connector: failed to list roles: %w", err)
+		return nil, nil, fmt.Errorf("baton-panther: failed to list roles: %w", err)
 	}
 
 	var rv []*v2.Resource
