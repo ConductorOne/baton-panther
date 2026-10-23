@@ -8,7 +8,6 @@ var (
 	Token = field.StringField(
 		"token",
 		field.WithDisplayName("API key"),
-		field.WithPlaceholder("Your Panther API key"),
 		field.WithDescription("API token used to authenticate to the Panther API."),
 		field.WithRequired(true),
 		field.WithIsSecret(true),

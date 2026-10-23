@@ -96,7 +96,6 @@
       "name": "token",
       "displayName": "API key",
       "description": "API token used to authenticate to the Panther API.",
-      "placeholder": "Your Panther API key",
       "isRequired": true,
       "isSecret": true,
       "stringField": {
