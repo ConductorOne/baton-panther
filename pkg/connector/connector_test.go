@@ -27,8 +27,8 @@ func TestNewSyncRoles(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got := cb.(*Panther).skipRoleGrants; got != tt.wantSkipGrant {
-				t.Fatalf("skipRoleGrants = %v, want %v", got, tt.wantSkipGrant)
+			if got := cb.(*Panther).skipRoleResourceType; got != tt.wantSkipGrant {
+				t.Fatalf("skipRoleResourceType = %v, want %v", got, tt.wantSkipGrant)
 			}
 		})
 	}

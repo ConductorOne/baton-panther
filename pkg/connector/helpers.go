@@ -8,12 +8,12 @@ import (
 
 // annotationsForUserResourceType returns the user resource type annotations.
 // Users have no entitlements. They only have grants when roles are synced.
-func annotationsForUserResourceType(syncRoles bool) annotations.Annotations {
+func annotationsForUserResourceType(skipRoleResourceType bool) annotations.Annotations {
 	annos := annotations.Annotations{}
-	if syncRoles {
-		annos.Update(&v2.SkipEntitlements{})
-	} else {
+	if skipRoleResourceType {
 		annos.Update(&v2.SkipEntitlementsAndGrants{})
+	} else {
+		annos.Update(&v2.SkipEntitlements{})
 	}
 	return annos
 }
@@ -26,9 +26,9 @@ func annotationsForRoleResourceType() annotations.Annotations {
 	return annos
 }
 
-// userResourceTypeFor returns a copy of resourceTypeUser with annotations that depend on syncRoles.
-func userResourceTypeFor(syncRoles bool) *v2.ResourceType {
+// userResourceTypeFor returns a copy of resourceTypeUser with annotations that depend on skipRoleResourceType.
+func userResourceTypeFor(skipRoleResourceType bool) *v2.ResourceType {
 	rt := proto.Clone(resourceTypeUser).(*v2.ResourceType)
-	rt.Annotations = annotationsForUserResourceType(syncRoles)
+	rt.Annotations = annotationsForUserResourceType(skipRoleResourceType)
 	return rt
 }

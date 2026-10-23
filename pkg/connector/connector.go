@@ -37,14 +37,14 @@ var (
 
 type Panther struct {
 	client *panther.Client
-	// skipRoleGrants is true when the role resource type is not synced.
-	// The zero value matches the default of syncing everything.
-	skipRoleGrants bool
+	// skipRoleResourceType is true when the role resource type is excluded from the sync filter.
+	// Named for the skip condition so the zero value used for capabilities syncs everything.
+	skipRoleResourceType bool
 }
 
 func (pn *Panther) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncerV2 {
 	return []connectorbuilder.ResourceSyncerV2{
-		userBuilder(pn.client, !pn.skipRoleGrants),
+		userBuilder(pn.client, pn.skipRoleResourceType),
 		roleBuilder(pn.client),
 	}
 }
@@ -74,11 +74,11 @@ func New(ctx context.Context, cfg *cfg.Panther, opts *cli.ConnectorOpts) (connec
 		return nil, nil, err
 	}
 
-	// nil opts means no filter, so roles are synced.
-	syncRoles := opts == nil || opts.WillSyncResourceType(RoleResourceTypeID)
+	// nil opts means no filter, so nothing is skipped.
+	skipRoleResourceType := opts != nil && !opts.WillSyncResourceType(RoleResourceTypeID)
 
 	return &Panther{
-		client:         panther.NewClient(httpClient, cfg.Token, cfg.Url),
-		skipRoleGrants: !syncRoles,
+		client:               panther.NewClient(httpClient, cfg.Token, cfg.Url),
+		skipRoleResourceType: skipRoleResourceType,
 	}, nil, nil
 }

@@ -17,7 +17,7 @@ func TestUserGrants(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	grants, _, err := userBuilder(nil, true).Grants(ctx, ur, resource.SyncOpAttrs{})
+	grants, _, err := userBuilder(nil, false).Grants(ctx, ur, resource.SyncOpAttrs{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestUserGrants(t *testing.T) {
 		t.Fatalf("unexpected principal: %v", grants[0].GetPrincipal())
 	}
 
-	grants, _, err = userBuilder(nil, false).Grants(ctx, ur, resource.SyncOpAttrs{})
+	grants, _, err = userBuilder(nil, true).Grants(ctx, ur, resource.SyncOpAttrs{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,8 +43,8 @@ func TestUserGrants(t *testing.T) {
 
 func TestUserResourceTypeAnnotations(t *testing.T) {
 	ctx := context.Background()
-	with := annotations.Annotations(userBuilder(nil, true).ResourceType(ctx).GetAnnotations())
-	without := annotations.Annotations(userBuilder(nil, false).ResourceType(ctx).GetAnnotations())
+	with := annotations.Annotations(userBuilder(nil, false).ResourceType(ctx).GetAnnotations())
+	without := annotations.Annotations(userBuilder(nil, true).ResourceType(ctx).GetAnnotations())
 
 	if !with.Contains(&v2.SkipEntitlements{}) || with.Contains(&v2.SkipEntitlementsAndGrants{}) {
 		t.Fatal("with roles: expected SkipEntitlements only")
@@ -61,5 +61,24 @@ func TestRoleGrantsNoop(t *testing.T) {
 	grants, _, err := roleBuilder(nil).Grants(context.Background(), nil, resource.SyncOpAttrs{})
 	if err != nil || len(grants) != 0 {
 		t.Fatalf("expected no grants, got %v, %v", grants, err)
+	}
+}
+
+func TestZeroValueConnector_DoesNotSkipGrants(t *testing.T) {
+	syncers := (&Panther{}).ResourceSyncers(context.Background())
+
+	var userRT *v2.ResourceType
+	for _, rs := range syncers {
+		if rt := rs.ResourceType(context.Background()); rt.GetId() == resourceTypeUser.GetId() {
+			userRT = rt
+		}
+	}
+	if userRT == nil {
+		t.Fatal("user resource syncer not found")
+	}
+
+	annos := annotations.Annotations(userRT.GetAnnotations())
+	if !annos.Contains(&v2.SkipEntitlements{}) || annos.Contains(&v2.SkipEntitlementsAndGrants{}) {
+		t.Fatal("zero-value Panther must advertise user grants (SkipEntitlements only)")
 	}
 }

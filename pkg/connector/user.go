@@ -15,7 +15,8 @@ import (
 type userResourceType struct {
 	resourceType *v2.ResourceType
 	client       *panther.Client
-	syncRoles    bool
+	// skipRoleResourceType is true when the role resource type is excluded from the sync filter.
+	skipRoleResourceType bool
 }
 
 func (u *userResourceType) ResourceType(_ context.Context) *v2.ResourceType {
@@ -76,7 +77,7 @@ func (u *userResourceType) Entitlements(_ context.Context, _ *v2.Resource, _ res
 
 // Grants emits the role membership grant for the user. Each Panther user has exactly one role.
 func (u *userResourceType) Grants(ctx context.Context, res *v2.Resource, _ resource.SyncOpAttrs) ([]*v2.Grant, *resource.SyncOpResults, error) {
-	if !u.syncRoles {
+	if u.skipRoleResourceType {
 		return nil, nil, nil
 	}
 
@@ -94,10 +95,10 @@ func (u *userResourceType) Grants(ctx context.Context, res *v2.Resource, _ resou
 	return []*v2.Grant{grant.NewGrant(rr, membership, res.Id)}, nil, nil
 }
 
-func userBuilder(client *panther.Client, syncRoles bool) *userResourceType {
+func userBuilder(client *panther.Client, skipRoleResourceType bool) *userResourceType {
 	return &userResourceType{
-		resourceType: userResourceTypeFor(syncRoles),
-		client:       client,
-		syncRoles:    syncRoles,
+		resourceType:         userResourceTypeFor(skipRoleResourceType),
+		client:               client,
+		skipRoleResourceType: skipRoleResourceType,
 	}
 }
