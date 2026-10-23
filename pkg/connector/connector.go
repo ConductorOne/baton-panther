@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	cfg "github.com/conductorone/baton-panther/pkg/config"
 	"github.com/conductorone/baton-panther/pkg/panther"
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
+	"github.com/conductorone/baton-sdk/pkg/cli"
 	"github.com/conductorone/baton-sdk/pkg/connectorbuilder"
 	"github.com/conductorone/baton-sdk/pkg/uhttp"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
@@ -65,15 +67,18 @@ func (pn *Panther) Validate(ctx context.Context) (annotations.Annotations, error
 	return nil, nil
 }
 
-// New returns the Panther connector. User grants are only emitted when syncRoles is true.
-func New(ctx context.Context, token, url string, syncRoles bool) (*Panther, error) {
+// New returns the Panther connector. User grants are only emitted when the role resource type is synced.
+func New(ctx context.Context, cfg *cfg.Panther, opts *cli.ConnectorOpts) (connectorbuilder.ConnectorBuilderV2, []connectorbuilder.Opt, error) {
 	httpClient, err := uhttp.NewClient(ctx, uhttp.WithLogger(true, ctxzap.Extract(ctx)))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
+	// nil opts means no filter, so roles are synced.
+	syncRoles := opts == nil || opts.WillSyncResourceType(RoleResourceTypeID)
+
 	return &Panther{
-		client:         panther.NewClient(httpClient, token, url),
+		client:         panther.NewClient(httpClient, cfg.Token, cfg.Url),
 		skipRoleGrants: !syncRoles,
-	}, nil
+	}, nil, nil
 }
