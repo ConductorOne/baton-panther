@@ -7,6 +7,8 @@ import (
 var (
 	Token = field.StringField(
 		"token",
+		field.WithDisplayName("API key"),
+		field.WithPlaceholder("Your Panther API key"),
 		field.WithDescription("API token used to authenticate to the Panther API."),
 		field.WithRequired(true),
 		field.WithIsSecret(true),
@@ -14,8 +16,11 @@ var (
 
 	URL = field.StringField(
 		"url",
+		field.WithDisplayName("API URL"),
+		field.WithPlaceholder("Your Panther API URL"),
 		field.WithDescription("API url of your panther account."),
 		field.WithRequired(true),
+		field.WithIsSecret(true),
 	)
 )
 
@@ -23,4 +28,8 @@ var (
 var Config = field.NewConfiguration([]field.SchemaField{
 	Token,
 	URL,
-})
+},
+	field.WithConnectorDisplayName("Panther"),
+	field.WithIconUrl("/static/app-icons/panther.svg"),
+	field.WithHelpUrl("/docs/baton/panther"),
+)
