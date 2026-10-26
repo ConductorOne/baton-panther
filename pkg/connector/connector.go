@@ -71,7 +71,7 @@ func (pn *Panther) Validate(ctx context.Context) (annotations.Annotations, error
 func New(ctx context.Context, cfg *cfg.Panther, opts *cli.ConnectorOpts) (connectorbuilder.ConnectorBuilderV2, []connectorbuilder.Opt, error) {
 	httpClient, err := uhttp.NewClient(ctx, uhttp.WithLogger(true, ctxzap.Extract(ctx)))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("baton-panther: failed ot create http client: %w", err)
 	}
 
 	// nil opts means no filter, so nothing is skipped.
