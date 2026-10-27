@@ -3,11 +3,12 @@ module github.com/conductorone/baton-panther
 go 1.27.3
 
 require (
-	github.com/conductorone/baton-sdk v0.42.4
+	github.com/conductorone/baton-sdk v0.42.5
 	github.com/ennyjfrick/ruleguard-logfatal v0.0.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/quasilyte/go-ruleguard/dsl v0.3.23
 	go.uber.org/zap v1.28.0
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
@@ -134,7 +135,6 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/grpc v1.83.2 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
